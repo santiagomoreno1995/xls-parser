@@ -20,118 +20,112 @@ exports.onFileSelection = (file, { showNullProperties = false, hideEmptyRows = t
 };
 
 const onLoadEvent = (binary, reader, hideEmptyRows, showNullProperties) => {
-	const parsedXls = {};
-	var workbook = sheetJs.read(binary, {
-		type: 'binary'
-	});
-	const sheetNames = getSheetNames(workbook);
+    const parsedXls = {};
+    var workbook = sheetJs.read(binary, {
+        type: 'binary'
+    });
+    const sheetNames = getSheetNames(workbook);
+    const strings = getStrings(workbook);
 
-	sheetNames.forEach(name => {
-		const sheet = workbook.Sheets[name];
-		const desiredCells = getDesiredCells(sheet);
-		const lastColRow = getLastRowCol(desiredCells);
-		const columnsAndHeaders = getColumnsAndHeaders(sheet, desiredCells);
+    sheetNames.forEach(name => {
+        const sheet = workbook.Sheets[name];
+        const desiredCells = getDesiredCells(sheet);
+        const lastColRow = getLastRowCol(desiredCells);
+        const columnsAndHeaders = getColumnsAndHeaders(sheet, desiredCells, strings);
 
-		const data = getData(lastColRow, columnsAndHeaders.excelColumns, columnsAndHeaders.headers, sheet, showNullProperties);
-		if (hideEmptyRows) {
-			const finalData = [];
-			data.forEach(element => {
-				let isEmpty = true;
-				columnsAndHeaders.headers.forEach(header => {
-					if (element[header]) {
-						isEmpty = false;
-					}
-				});
-				if (!isEmpty) {
-					finalData.push(element);
-				}
-			});
-
-			parsedXls[name] = finalData;
-		}
-		else {
-			parsedXls[name] = data;
-		}
-
-	});
-
-	return parsedXls;
+        const data = getData(lastColRow, columnsAndHeaders.excelColumns, columnsAndHeaders.headers, sheet, showNullProperties);
+        if (hideEmptyRows) {
+            const finalData = [];
+            data.forEach(element => {
+                let isEmpty = true;
+                columnsAndHeaders.headers.forEach(header => {
+                    if (element[header]) {
+                        isEmpty = false;
+                    }
+                });
+                if (!isEmpty) {
+                    finalData.push(element);
+                }
+            });
+            parsedXls[name] = finalData;
+        }
+        else {
+            parsedXls[name] = data;
+        }
+    });
+    return parsedXls;
 }
 
 const getData = (lastColRow, columns, headers, sheet, showNullProperties) => {
-	const data = [];
+    const data = [];
 
-	for (let R = 2; R <= lastColRow; R++) {
-		const element = {};
+    for (let R = 3; R <= lastColRow; R++) {
+        const element = {};
 
-		headers.forEach((header, index) => {
-			const cellValue = getValue(sheet, columns[index], R);
+        headers.forEach((header, index) => {
+            const cellValue = getValue(sheet, columns[index], R);
 
-			if (cellValue) {
-				element[header] = cellValue.w ? cellValue.w : cellValue.v
-			}
-			else if (showNullProperties) {
-				element[header] = null;
-			}
-		});
-		if (Object.keys(element).length > 0) {
-			data.push(element);
-		}
-	}
+            if (cellValue) {
+                element[header] = cellValue.w ? cellValue.w : cellValue.v
+            }
+            else if (showNullProperties) {
+                element[header] = null;
+            }
+        });
+        if (Object.keys(element).length > 0) {
+            data.push(element);
+        }
+    }
 
-	return data;
+    return data;
 }
 
 const getValue = (sheet, column, R) => sheet[`${column}${R}`];
-
 const getSheetNames = (workbook) => workbook.SheetNames;
-
 const getDesiredCells = (worksheet) => worksheet['!ref'];
+const getStrings = (worksheet) => worksheet['Strings'];
 
 const getLastRowCol = (cells) => {
-	const rows = cells.split(':');
-	const lastColRow = rows.length > 1 ? rows[1] : rows[0];
+    const rows = cells.split(':');
+    const lastColRow = rows.length > 1 ? rows[1] : rows[0];
 
-	const lastColLetter = extractLetter(lastColRow);
-	const array = lastColRow.split(lastColLetter);
+    const lastColLetter = extractLetter(lastColRow);
+    const array = lastColRow.split(lastColLetter);
 
-	return Number(array[1]);
+    return Number(array[1]);
 }
 
-const getColumnsAndHeaders = (worksheet, desired_cells) => {
-	const cells = desired_cells.split(':');
-	const lastCell = cells.length > 1 ? cells[1] : cells[0];
-	const lastColLetter = extractLetter(lastCell);
+const getColumnsAndHeaders = (worksheet, desired_cells, strings) => {
+    const cells = desired_cells.split(':');
+    const lastCell = cells.length > 1 ? cells[1] : cells[0];
+    const lastColLetter = extractLetter(lastCell);
 
-	let iterator = 0;
-	let accumulator = '';
-	let accumulatorIterator = 0;
-	const headers = [];
-	const excelColumns = [];
+    let iterator = 0;
+    let accumulator = '';
+    let accumulatorIterator = 1;
+    const headers = [];
+    const excelColumns = [];
 
-	while (true) {
+    while (true) {
+        const currentCell = `${accumulator}${abc[iterator++]}`;
 
-		const currentCell = `${accumulator}${abc[iterator++]}`;
-		const cellHeader = worksheet[currentCell + 1];
-
-		if (cellHeader) {
-			headers.push(cellHeader.v)
-			excelColumns.push(currentCell);
-		}
-
-		if (lastColLetter == currentCell) {
-			return { headers: headers, excelColumns: excelColumns };
-		}
-
-		if (iterator >= abc.length) {
-			const test = abc[accumulatorIterator++];
-			iterator = 0;
-			accumulator = test;
-		}
-	}
+        if (accumulatorIterator<17) {
+            headers.push(strings[accumulatorIterator].t);
+            excelColumns.push(currentCell);
+        }
+        if (lastColLetter == currentCell) {
+            return { headers: headers, excelColumns: excelColumns };
+        }
+        if (iterator >= abc.length) {
+            const test = abc[accumulatorIterator++];
+            iterator = 0;
+            accumulator = test;
+        }
+        accumulatorIterator++;
+    }
 }
 
 const extractLetter = (str) => {
-	const array = str.split(/[0-9]+/);
-	return array[0];
+    const array = str.split(/[0-9]+/);
+    return array[0];
 }
